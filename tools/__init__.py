@@ -117,38 +117,6 @@ def remove_out_bounds_pts(ref_tif, ROI_box):
     return sample_ROI[['centroid']]
 
 
-# Create en empty destination raster with HDF format
-def create_empty_raster(src_file, dst_file, dst_crs, resolution=30, chunk_size=512):
-    """
-    Create an empty raster HDF file with the same shape and dtype as the source raster.
-
-    Parameters:
-    - src_file (str): Path to the source raster file.
-    - dst_file (str): Path to the destination HDF file.
-    - dst_crs (str): Destination coordinate reference system (CRS) in EPSG format.
-    - resolution (int): Resolution of the destination raster in meters (default: 30).
-    - chunk_size (int): Chunk size for storing the data in the HDF file (default: 512).
-
-    Returns:
-    None
-    """
-
-    # Calculate the transform and shape of the destination raster
-    with rasterio.open(src_file) as src:
-        dst_transform, dst_width, dst_height = calculate_default_transform(
-            src.crs, dst_crs, src.width, src.height, *src.bounds, resolution=resolution)
-
-        # Create the destination HDF with the same shape and dtype as the source raster
-        with h5py.File(dst_file, 'w') as dst:
-            # Write the metadata to the HDF
-            dst.create_dataset('Affine', data=dst_transform.to_gdal(), dtype='float64')
-            # Write the data to the HDF
-            dst.create_dataset('array',
-                               shape=(src.count, dst_height, dst_width),
-                               dtype=src.dtypes[0],
-                               chunks=(src.count, chunk_size, chunk_size),
-                               compression='gzip',
-                               fillvalue=0)
 
 
 def reproject_raster(src_file, dst_file, dst_crs):
@@ -258,17 +226,17 @@ def reproject_raster(src_file, ref_file, dst_file):
     Reprojects a raster file to match the coordinate reference system (CRS) of a reference file.
 
     Args:
-        ref_file (str): The path to the reference file with the desired CRS.
-        dst_file (str): The path to the output file where the reprojected raster will be saved.
+        src_file (str): The path to the source raster file.
+        ref_file (str): The path to the reference raster file.
+        dst_file (str): The path to save the reprojected raster file.
 
     Returns:
         None
     """
 
     if os.path.exists(dst_file):
-        print(f'Skip existing: {dst_file}')
+        print(f'Skip existing: ',  dst_file)
     else:
-    
         # Get the CRS of the reference file
         dst_crs = rasterio.open(ref_file).crs
         block_size = rasterio.open(ref_file).block_shapes[0][0]
@@ -279,14 +247,14 @@ def reproject_raster(src_file, ref_file, dst_file):
             with WarpedVRT(src, crs=dst_crs, resampling=Resampling.nearest) as vrt:
                 profile = vrt.profile
                 profile.update(driver='GTiff',
-                            blockxsize=block_size, 
-                            blockysize=block_size,
-                            compression='lzw')
+                               blockxsize=block_size,
+                               blockysize=block_size,
+                               compression='lzw')
                 # Write the reprojected raster to disk
                 with rasterio.open(dst_file, 'w', **profile) as dst:
                     # Loop through the blocks
                     windows = list(vrt.block_windows())
-                    for ji, window in tqdm(windows,total=len(windows)):
+                    for ji, window in tqdm(windows, total=len(windows)):
                         vrt_array = vrt.read(window=window)
                         # Write each band separately
                         for band_index in range(1, vrt.count + 1):
