@@ -93,7 +93,7 @@ class X_y_dataset(Dataset):
 sample_pts = pd.read_csv('data/sample_pts.csv')
 
 # Split the sample indexes into train and validation sets
-train_idx, val_idx = train_test_split(range(len(sample_pts)), 
+train_idx, val_idx = train_test_split(range(100), # range(len(sample_pts))
                                       test_size=0.2, 
                                       random_state=42)
 
@@ -106,15 +106,6 @@ val_dataset   = X_y_dataset(HDFs,val_idx,YR_VAL_FROM,YR_VAL_TO)
 
 train_dataloader = DataLoader(train_dataset,batch_size=BATCH_SIZE,shuffle=True)
 val_dataloader   = DataLoader(val_dataset,batch_size=BATCH_SIZE,shuffle=True)
-
-
-
-
-
-
-
-
-
 
 
 
