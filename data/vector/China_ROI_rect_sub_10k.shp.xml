@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><CreaDate>20240108</CreaDate><CreaTime>10552600</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files (x86)\arcgis\desktop10.4\ArcToolbox\Toolboxes\Geostatistical Analyst Tools.tbx\SubsetFeatures" Date="20240108" Time="105526">SubsetFeatures China_ROI_rect E:\UNET_China_URBAN\data\vector\China_ROI_rect_sub_10k.shp # 10000 ABSOLUTE_VALUE</Process></lineage></DataProperties></Esri></metadata>

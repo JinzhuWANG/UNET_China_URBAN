@@ -1,6 +1,12 @@
 import os
+import geopandas as gpd
 import h5py
+import numpy as np
+import pyproj
 import rasterio
+from rasterio.enums import Resampling
+from rasterio.warp import Resampling, calculate_default_transform, reproject
+from shapely.geometry import box
 from tqdm.auto import tqdm
 
 
@@ -42,7 +48,7 @@ def GEOTIF2HDF(file):
 
 
         # Create HDF5 file
-        with h5py.File(fr'data/raster/{file_name}.hdf5','w') as dst:
+        with h5py.File(fr'data/raster/{file_name}.hdf','w') as dst:
 
             # Create dataset
             dst.create_dataset('array', shape=tif_shape, dtype=tif_dtype, chunks=block_size, compression='gzip')
@@ -60,3 +66,132 @@ def GEOTIF2HDF(file):
 
         # Report a successful conversion message
         print(f'File {file_name} converted successfully!')
+
+
+def remove_out_bounds_pts(ref_tif, ROI_box):
+    """
+    Remove points from the ROI box that are outside the bounds of the reference raster.
+
+    Args:
+        ref_tif (str): Filepath of the reference raster.
+        ROI_box (str): Filepath of the ROI box.
+
+    Returns:
+        geopandas.GeoDataFrame: ROI box with points removed that are outside the bounds of the reference raster.
+    """
+    # get the CRS of the reference raster
+    raster_src = rasterio.open(ref_tif)
+    crs = pyproj.CRS(raster_src.crs)
+
+    # Get the top/bottom/left/right coordinates of the reference raster
+    left, bottom, right, top = raster_src.bounds
+
+    # Subtract right/bottom by the block size, so that the sample points (coor:coor + block_shape) 
+    # will not pass the edge
+    right = right - (raster_src.block_shapes[0][1]/2)
+    bottom = bottom + (raster_src.block_shapes[0][0]/2)
+
+    sample_box = box(left, bottom, right, top)
+
+    # Read the ROI box, and convert it to the same CRS as the reference raster
+    sample_ROI = gpd.read_file(ROI_box)
+    sample_ROI = sample_ROI.to_crs(crs)
+
+    # Add a centroid column
+    sample_ROI['centroid'] = sample_ROI['geometry'].centroid
+
+    # Check if the centroid is within the bounding box of the reference raster
+    sample_ROI = sample_ROI[sample_ROI['centroid'].within(sample_box)]
+
+    return sample_ROI[['centroid']]
+
+
+# Create en empty destination raster with HDF format
+def create_empty_raster(src_file, dst_file, dst_crs, resolution=30, chunk_size=512):
+    """
+    Create an empty raster HDF file with the same shape and dtype as the source raster.
+
+    Parameters:
+    - src_file (str): Path to the source raster file.
+    - dst_file (str): Path to the destination HDF file.
+    - dst_crs (str): Destination coordinate reference system (CRS) in EPSG format.
+    - resolution (int): Resolution of the destination raster in meters (default: 30).
+    - chunk_size (int): Chunk size for storing the data in the HDF file (default: 512).
+
+    Returns:
+    None
+    """
+
+    # Calculate the transform and shape of the destination raster
+    with rasterio.open(src_file) as src:
+        dst_transform, dst_width, dst_height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds, resolution=resolution)
+
+        # Create the destination HDF with the same shape and dtype as the source raster
+        with h5py.File(dst_file, 'w') as dst:
+            # Write the metadata to the HDF
+            dst.create_dataset('Affine', data=dst_transform.to_gdal(), dtype='float64')
+            # Write the data to the HDF
+            dst.create_dataset('array',
+                               shape=(src.count, dst_height, dst_width),
+                               dtype=src.dtypes[0],
+                               chunks=(src.count, chunk_size, chunk_size),
+                               compression='gzip',
+                               fillvalue=0)
+
+
+def reproject_raster(src_file, dst_file, dst_crs):
+    """
+    Reprojects a raster from the source CRS to the destination CRS.
+
+    Args:
+        src_file (str): The path to the source raster file.
+        dst_file (str): The path to the destination HDF file.
+        dst_crs (str): The destination CRS in WKT format.
+
+    Returns:
+        None
+    """
+
+    # Open the source raster
+    with rasterio.open(src_file) as src:
+
+        blocks = list(src.block_windows())
+
+        # Read the source raster block by block
+        for ji, window in tqdm(blocks,total=len(blocks)):
+            src_data = src.read(window=window)
+            src_crs = pyproj.CRS(src.crs)
+            src_transform = src.window_transform(window)
+            src_width = window.width
+            src_height = window.height
+            src_bounds = src.window_bounds(window)
+
+            # Calculate the transform and shape of the destination raster
+            dst_transform, dst_width, dst_height = calculate_default_transform(
+                src_crs, dst_crs, src_width, src_height, *src_bounds, resolution=30)
+
+            # Reproject the source raster to the destination raster   
+            dst_data = np.zeros((src.count, dst_height, dst_width),dtype=src_data.dtype)
+
+            dst_data_proj,dst_data_trans = reproject(
+                source=src_data,
+                destination=dst_data,
+                src_transform=src_transform,
+                src_crs=src_crs,
+                dst_transform=dst_transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.nearest)
+
+            # Write the data to the destination HDF
+            row_accumulator = 0
+            col_accumulator = 0
+            with h5py.File(dst_file,'r+') as dst:
+                # Write the data to the HDF
+                row_slice = slice(row_accumulator, row_accumulator + dst_height)
+                col_slice = slice(col_accumulator, col_accumulator + dst_width)
+                dst['array'][slice(None),row_slice,col_slice] = dst_data_proj
+
+                # Update the row and column accumulators
+                row_accumulator += dst_height
+                col_accumulator += dst_width
