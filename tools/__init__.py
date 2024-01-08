@@ -1,18 +1,24 @@
+from glob import glob
 import os
-import geopandas as gpd
+import pandas as pd
+from rasterio import Affine
+from tqdm.auto import tqdm
+
 import h5py
 import numpy as np
-from osgeo import gdal
+import geopandas as gpd
+
 import pyproj
+from osgeo import gdal
+from shapely.geometry import box
+
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
-from shapely.geometry import box
-from tqdm.auto import tqdm
-
+from tools.helper_func import tif2hdf
 
 
 
@@ -21,67 +27,11 @@ if __name__ == '__main__':
     os.chdir('../')
 
 
-def GEOTIF2HDF(files):
+def get_sample_pts(ref_tif, ROI_box):
     """
-    Convert GeoTIFF files to HDF5 format.
-
-    Args:
-        files (list): List of file paths to GeoTIFF files.
-
-    Returns:
-        None
-    """
-    for file in files:
-        # skip if the file is already converted
-        if os.path.isfile(file.replace('.tif', '.hdf')):
-            print('Skip existing: ', file)
-        else:
-            # Convert GeoTIFF files to HDF5, keep the chunk size the same as the raster window size
-            with rasterio.open(file,'r') as src:
-
-                # Get the base name of the file
-                file_name = os.path.basename(file).split('.')[0]
-
-                # Get raster info
-                tif_band_num = src.count
-                tif_shape = (tif_band_num,*src.shape)
-                tif_dtype = src.dtypes[0]
-                # Get block_windows
-                block_windows = [window for ij, window in src.block_windows()]
-                block_size = (tif_band_num,*src.block_shapes[0])
-
-                # Report the metadata of the file
-                print(f'File name: {file_name}')
-                print(f'Band number: {tif_band_num}')
-                print(f'Raster dtype: {tif_dtype}')
-                print(f'Raster shape: {tif_shape}')
-                print(f'Block size: {block_size}')
-
-
-                # Create HDF5 file
-                with h5py.File(fr'data/raster/{file_name}.hdf','w') as dst:
-
-                    # Create dataset
-                    dst.create_dataset('array', shape=tif_shape, dtype=tif_dtype, chunks=block_size, compression='gzip')
-
-                    # Write data to dataset
-                    for i, window in tqdm(enumerate(block_windows),total=len(block_windows)):
-
-                        # Read data from GeoTIFF
-                        data = src.read(window=window)
-
-                        # Write data to HDF5
-                        row_slice = slice(window.row_off, window.row_off + window.height)
-                        col_slice = slice(window.col_off, window.col_off + window.width)
-                        dst['array'][slice(None),row_slice, col_slice] = data
-
-                # Report a successful conversion message
-                print(f'File {file_name} converted successfully!')
-
-
-def remove_out_bounds_pts(ref_tif, ROI_box):
-    """
-    Remove points from the ROI box that are outside the bounds of the reference raster.
+    1) Project the shapefile to the same CRS as the reference raster, 
+    2) Get the centroid of each polygon as the top-left anchor of tile samples.
+    3) Remove points that are outside the bounds of the reference raster.
 
     Args:
         ref_tif (str): Filepath of the reference raster.
@@ -119,63 +69,6 @@ def remove_out_bounds_pts(ref_tif, ROI_box):
 
 
 
-def reproject_raster(src_file, dst_file, dst_crs):
-    """
-    Reprojects a raster from the source CRS to the destination CRS.
-
-    Args:
-        src_file (str): The path to the source raster file.
-        dst_file (str): The path to the destination HDF file.
-        dst_crs (str): The destination CRS in WKT format.
-
-    Returns:
-        None
-    """
-
-    # Open the source raster
-    with rasterio.open(src_file) as src:
-
-        blocks = list(src.block_windows())
-
-        # Read the source raster block by block
-        for _, window in tqdm(blocks,total=len(blocks)):
-            src_data = src.read(window=window)
-            src_crs = src.crs
-            src_transform = src.window_transform(window)
-            src_width = window.width
-            src_height = window.height
-            src_bounds = src.window_bounds(window)
-
-            # Calculate the transform and shape of the destination raster
-            dst_transform, dst_width, dst_height = calculate_default_transform(
-                src_crs, dst_crs, src_width, src_height, *src_bounds, resolution=30)
-
-            # Reproject the source raster to the destination raster   
-            dst_data = np.zeros((src.count, dst_height, dst_width),dtype=src_data.dtype)
-
-            dst_data_proj,_ = reproject(
-                source=src_data,
-                destination=dst_data,
-                src_transform=src_transform,
-                src_crs=src_crs,
-                dst_transform=dst_transform,
-                dst_crs=dst_crs,
-                resampling=Resampling.nearest)
-
-            # Write the data to the destination HDF
-            row_accumulator = 0
-            col_accumulator = 0
-            with h5py.File(dst_file,'r+') as dst:
-                # Write the data to the HDF
-                row_slice = slice(row_accumulator, row_accumulator + dst_height)
-                col_slice = slice(col_accumulator, col_accumulator + dst_width)
-                dst['array'][slice(None),row_slice,col_slice] = dst_data_proj
-
-                # Update the row and column accumulators
-                row_accumulator += dst_height
-                col_accumulator += dst_width
-
-
 def mosaic_tif_2_vrt(raster_files, vrt_path):
     
     if os.path.isfile(vrt_path):
@@ -187,40 +80,6 @@ def mosaic_tif_2_vrt(raster_files, vrt_path):
         vrt = None  # This will close and save the VRT
 
 
-def vrt2tif(vrt_path, tif_path):
-    """
-    Convert a VRT file to a GeoTIFF file.
-
-    Parameters:
-    vrt_path (str): The path to the VRT file.
-    dst_path (str): The path to save the GeoTIFF file.
-
-    Returns:
-    None
-    """
-    if os.path.isfile(tif_path):
-        print('Skip existing: ', tif_path)
-    else:
-        # Write the VRT to a TIF
-        with rasterio.open(vrt_path) as src:
-            
-            profile = src.profile
-            # Update the driver to GTiff, and add compression
-            profile.update(driver='GTiff',
-                           compress='lzw',
-                           BIGTIFF = "IF_SAFER")
-
-            with rasterio.open(tif_path, 'w', **profile) as dst:
-                # Iterate through blocks
-                windows = list(src.block_windows())
-                for _, window in tqdm(windows,total=len(windows)):
-                    # Read and write the data in each block
-                    data = src.read(window=window)
-                    dst.write(data, window=window)
-        print('File converted successfully!')
-        
-        
-        
 def reproject_raster(src_file, ref_file, dst_file):
     """
     Reprojects a raster file to match the coordinate reference system (CRS) of a reference file.
@@ -254,8 +113,58 @@ def reproject_raster(src_file, ref_file, dst_file):
                 with rasterio.open(dst_file, 'w', **profile) as dst:
                     # Loop through the blocks
                     windows = list(vrt.block_windows())
-                    for ji, window in tqdm(windows, total=len(windows)):
+                    for _, window in tqdm(windows, total=len(windows)):
                         vrt_array = vrt.read(window=window)
                         # Write each band separately
-                        for band_index in range(1, vrt.count + 1):
-                            dst.write(vrt_array, window=window)
+                        dst.write(vrt_array, window=window)
+
+
+def write_slices_2_HDF(hdf_file:str,sample_pts:pd.DataFrame):
+    """
+    Write slices to an HDF file based on sample points.
+
+    Parameters:
+    hdf_file (str): The path to the HDF file.
+    sample_pts (pd.DataFrame): The DataFrame containing sample points.
+
+    Returns:
+    None
+    """
+
+    # Read the raster (HDF) file, get transform and ndarray
+    with h5py.File(hdf_file, 'r+') as src:
+
+        trans = Affine(*src['transform'])
+        array = src['array']
+        chunk_size = array.chunks[-1]
+
+
+        # Loop through each sample point, and compute 
+        # the slices for each point
+        row_slices = []
+        col_slices = []
+        for i, row in sample_pts.iterrows():
+            # Get the sample point coordinate
+            x, y = row['centroid'].x, row['centroid'].y
+
+            # Get the slice for the sample point
+            col,row =  ~trans * (x, y)
+            col,row = int(col), int(row)
+
+            row_slice = [row, row + chunk_size]
+            col_slice = [col, col + chunk_size]
+
+            # Append the slices to the list
+            row_slices.append(row_slice)
+            col_slices.append(col_slice)
+
+        # Write the slices to the HDF file
+        if 'row_slices' in src.keys():
+            del src['row_slices']
+            del src['col_slices']
+            
+        src.create_dataset('row_slices', data=np.array(row_slices))
+        src.create_dataset('col_slices', data=np.array(col_slices))
+        
+        # Report the number of slices
+        print(f'Number of slices added: {len(row_slices)} ==> {hdf_file}')
