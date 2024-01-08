@@ -58,7 +58,7 @@ def tif2hdf(tif_path, chunk_size=None):
         None
     """
     
-    if os.path.isfile(tif_path):
+    if os.path.isfile(tif_path.replace('.tif','.hdf')):
         print('Skip existing: ', tif_path)
     else:
         # Convert GeoTIFF files to HDF5, keep the chunk size the same as 

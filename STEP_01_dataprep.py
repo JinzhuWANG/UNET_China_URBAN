@@ -49,7 +49,7 @@ tif2hdf(dst_file)
 
 
 #####################################################
-#           Sample tiles from raster data           #
+#      Create slice index from sample points        #
 #####################################################
 
 # Use ROI_box to restrict the sample points generation
@@ -58,6 +58,9 @@ ROI_box = 'data/vector/China_ROI_rect_sub_10k.shp'
 # Get the sample points, indicating the top-left 
 # coordinate of each tile
 sample_pts = get_sample_pts(LUCC_files[0], ROI_box)
+
+# Save the sample points to a CSV file
+sample_pts.to_csv('data/sample_pts.csv', index=False)
 
 # Write the sample slices to HDFs
 HDFs = glob('data/raster/*.hdf')
