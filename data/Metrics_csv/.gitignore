@@ -1,5 +1,12 @@
+<<<<<<< HEAD
 # Ignore all files
 *
 
 # But not directories
+=======
+# Ignore all files
+*
+
+# But not directories
+>>>>>>> c12816aa1910a866b2605a0db44242340dc1d227
 !.gitignore

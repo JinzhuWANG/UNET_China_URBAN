@@ -76,14 +76,14 @@ def load_saved_model(model):
         model.load_state_dict(torch.load(longest_trained_model,map_location=torch.device(device)))
         start_epoch = int(longest_trained_model[-7:-4])
 
-        metrics_df = pd.read_csv('data/Saved_models/Metrics_csv/metrics.csv',header=None)
+        metrics_df = pd.read_csv('data/Metrics_csv/metrics.csv',header=None)
         best_loss = metrics_df[metrics_df[1]=='eval'][2].min()
     else:
         start_epoch = 0
         best_loss = 1e9
         # empty the recored folders
         files = [i for i in glob('data/Saved_models/Saved_models/*')]
-        files.extend(glob('data/Saved_models/Metrics_csv/*'))
+        files.extend(glob('data/Metrics_csv/*'))
         files.extend(glob('data/Saved_models/Train_model_pred_imgs/*.jpeg'))
         for i in files:
             os.remove(i)

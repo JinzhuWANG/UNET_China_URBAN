@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader,Dataset
 # from torchvision.utils import save_image
 from sklearn.model_selection import train_test_split
 
-from STEP_00_parameters import BATCH_SIZE, IMPERVIOUS_VAL, TOY_SIZE, \
+from STEP_00_parameters import BATCH_SIZE, BLOCK_SIZE, IMPERVIOUS_VAL, NUM_WORKERS, TOY_SIZE, \
                                YR_TRAIN_FROM, YR_TRAIN_TO
 
     
@@ -47,6 +47,18 @@ def get_arrary_from_hdf(hdf_path:str, indexes, idx:int, toy_size=None):
     arrary = hdf['array'][slice(None),
                           slice(*row_slice),
                           slice(*col_slice)]
+    
+    # Pad the array (CHW) if it is too small
+    if arrary.shape[1] < BLOCK_SIZE or arrary.shape[2] < BLOCK_SIZE:
+            # Calculate padding sizes
+            padding_vertical = max(BLOCK_SIZE - arrary.shape[1], 0)
+            padding_horizontal = max(BLOCK_SIZE - arrary.shape[2], 0)
+            
+            # Apply padding
+            arrary = np.pad(arrary, 
+                            ((0, 0),(0, padding_vertical), (0, padding_horizontal)), 
+                            mode='constant', 
+                            constant_values=0)
     
     # Shrink the size if toy_size is given
     if toy_size:
@@ -118,9 +130,9 @@ toy_dataset   = X_y_dataset(HDFs,range(100),YR_TRAIN_FROM,YR_TRAIN_TO, toy_size=
 train_dataset = X_y_dataset(HDFs,train_idx,YR_TRAIN_FROM,YR_TRAIN_TO)
 val_dataset   = X_y_dataset(HDFs,val_idx,YR_TRAIN_FROM,YR_TRAIN_TO)
 
-train_dataloader = DataLoader(train_dataset,batch_size=BATCH_SIZE,shuffle=True)
-val_dataloader   = DataLoader(val_dataset,batch_size=BATCH_SIZE,shuffle=True)
-toy_dataloader   = DataLoader(toy_dataset,batch_size=BATCH_SIZE,shuffle=True)  # for testing
+train_dataloader = DataLoader(train_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)
+val_dataloader   = DataLoader(val_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)
+toy_dataloader   = DataLoader(toy_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)  # for testing
 
 
 

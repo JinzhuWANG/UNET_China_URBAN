@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -22,7 +23,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 # Check if the model is trained on toy dataset
-toy_train = True # True: train on toy dataset, False: train on full dataset
+toy_train = False # True: train on toy dataset, False: train on full dataset
+
 if toy_train:
     train_dataloader = toy_dataloader
     val_dataloader = toy_dataloader
@@ -96,7 +98,8 @@ for epoch in range(start_epoch,NUM_EPOCH+1):
     test_losses_mean = np.array(test_losses).mean()
 
     # write metric to disk
-    with open('data/Metrics_csv/metrics.csv', 'a') as f:
+    metrics_path = 'data/Metrics_csv/metrics.csv'
+    with open(metrics_path, 'a') as f:
         f.write(f'{epoch},train,{train_losses_mean}\n')
         f.write(f'{epoch},eval,{test_losses_mean}\n')
 
