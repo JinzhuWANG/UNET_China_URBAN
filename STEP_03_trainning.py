@@ -3,14 +3,31 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from STEP_00_parameters import IN_CHANNLE, NUM_EPOCH
-from STEP_02_dataloader import train_dataset, train_dataloader, val_dataloader
+from STEP_00_parameters import IN_CHANNLE, NUM_EPOCH, PRED_IMG_IDX
+from STEP_02_dataloader import train_dataloader, val_dataloader,\
+                               all_dataset, toy_dataloader
 
 from tools.UNET import UNET
 from tools.model_helpers import eval_model, load_saved_model, pred_one_img
 
+
+############################################################
+#              Set up working parameters                   #
+############################################################
+
+
 # set the device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
+
+# Check if the model is trained on toy dataset
+toy_train = True # True: train on toy dataset, False: train on full dataset
+if toy_train:
+    train_dataloader = toy_dataloader
+    val_dataloader = toy_dataloader
+    all_dataset = toy_dataloader.dataset
+    PRED_IMG_IDX = len(all_dataset) - 1
 
 
 
@@ -84,7 +101,7 @@ for epoch in range(start_epoch,NUM_EPOCH+1):
         f.write(f'{epoch},eval,{test_losses_mean}\n')
 
     # pred a picture and save it to disk
-    pred_one_img(model, train_dataset, 10, epoch)
+    pred_one_img(model, all_dataset, PRED_IMG_IDX, epoch)
 
     # save models to disk
     model_path = 'data/Saved_models'

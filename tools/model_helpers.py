@@ -106,12 +106,13 @@ def pred_one_img(model, dataset, idx, epoch, img_path='data/Train_model_pred_img
     Returns:
         None
     """
-    x_arry, y_array = dataset[idx]
+    x_arry, y_arry = dataset[idx]
+    x_arry = x_arry.unsqueeze(0).float().to(device)
+    y_arry = y_arry.squeeze(0).detach().numpy()
 
     # passing the img to model
     pred_img = model(x_arry).cpu().detach().numpy()[0, 0, :, :]
-    true_img = y_array.detach().numpy()
 
     # save true-pred img to disk
-    concat_img = np.hstack([pred_img, true_img])
+    concat_img = np.hstack([pred_img, y_arry])
     save_image(torch.tensor(concat_img), f"{img_path}/train_pred_img_{epoch:03}.jpeg")
