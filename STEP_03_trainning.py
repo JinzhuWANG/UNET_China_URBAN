@@ -22,7 +22,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 # Check if the model is trained on toy dataset
-toy_train = True # True: train on toy dataset, False: train on full dataset
+toy_train = False # True: train on toy dataset, False: train on full dataset
+
 if toy_train:
     train_dataloader = toy_dataloader
     val_dataloader = toy_dataloader
