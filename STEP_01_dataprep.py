@@ -1,7 +1,8 @@
 from glob import glob
+import h5py
 
 from tools import mosaic_tif_2_vrt, get_sample_pts, \
-                  reproject_raster, write_slices_2_HDF
+                  reproject_raster, write_sample_slices_2_HDF
                   
 from tools.helper_func import tif2hdf
 
@@ -49,6 +50,22 @@ tif2hdf(dst_file)
 
 
 #####################################################
+#       Ensure all HDFs has the same resolution     #
+#####################################################
+
+# Get the resolutions of all HDFs
+HDFs = glob('data/raster/*.hdf')
+resolutions = [h5py.File(hdf_file, 'r')['transform'][0]
+               for hdf_file in HDFs]
+
+# Check if them are the same
+if all(x == resolutions[0] for x in resolutions):
+        print('All HDFs have the same resolution!')
+else:
+        # Raise an error if they are not the same
+        raise ValueError('All HDFs must have the same resolution!')
+
+#####################################################
 #      Create slice index from sample points        #
 #####################################################
 
@@ -65,7 +82,7 @@ sample_pts.to_csv('data/sample_pts.csv', index=False)
 # Write the sample slices to HDFs
 HDFs = glob('data/raster/*.hdf')
 for hdf_file in HDFs:
-    write_slices_2_HDF(hdf_file, sample_pts)
+    write_sample_slices_2_HDF(hdf_file, sample_pts)
 
 
 

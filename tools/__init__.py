@@ -132,9 +132,9 @@ def reproject_raster(src_file, ref_file, dst_file):
                         dst.write(vrt_array, window=window)
 
 
-def write_slices_2_HDF(hdf_file:str,sample_pts:pd.DataFrame):
+def write_sample_slices_2_HDF(hdf_file:str,sample_pts:pd.DataFrame):
     """
-    Write slices to an HDF file based on sample points.
+    Write sample slices to an HDF file based on sample points.
 
     Parameters:
     hdf_file (str): The path to the HDF file.
