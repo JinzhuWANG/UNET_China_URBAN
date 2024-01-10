@@ -131,8 +131,8 @@ train_dataset = X_y_dataset(HDFs,train_idx,YR_TRAIN_FROM,YR_TRAIN_TO)
 val_dataset   = X_y_dataset(HDFs,val_idx,YR_TRAIN_FROM,YR_TRAIN_TO)
 
 train_dataloader = DataLoader(train_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)
-val_dataloader   = DataLoader(val_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)
-toy_dataloader   = DataLoader(toy_dataset,batch_size=BATCH_SIZE,shuffle=True,pin_memory=True,num_workers=NUM_WORKERS)  # for testing
+val_dataloader   = DataLoader(val_dataset,batch_size=BATCH_SIZE,shuffle=False,pin_memory=True,num_workers=NUM_WORKERS)
+toy_dataloader   = DataLoader(toy_dataset,batch_size=BATCH_SIZE,shuffle=False,pin_memory=True,num_workers=NUM_WORKERS)  # for testing
 
 
 

@@ -9,7 +9,7 @@ import torch
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from STEP_00_parameters import PAD_SIZE
+from STEP_00_parameters import BLOCK_SIZE, PAD_SIZE
 
 
 # Set up working directory
@@ -143,9 +143,29 @@ def pad_chunk(hdf:str, chunks:list, idx:int):
 
     # Get the chunk
     chunk = chunks[idx]
+           
+    # Ensure the chunk to be (BLOCK_SIZE, BLOCK_SIZE)
+    chunk = (slice(None),
+                slice(chunk[1].start, chunk[1].start + BLOCK_SIZE),
+                 slice(chunk[2].start, chunk[2].start + BLOCK_SIZE))
+    
+    #############################################################################
+    #                   the chunk is totally outside the array                  #
+    #############################################################################
+    
+    if chunk[1].stop < 0 \
+        or chunk[1].start > src_array.shape[1] \
+        or chunk[2].stop < 0 \
+        or chunk[2].start > src_array.shape[2]:
+        return np.zeros((src_array.shape[0], BLOCK_SIZE + 2 * PAD_SIZE, BLOCK_SIZE + 2 * PAD_SIZE))
 
+    
+    #############################################################################
+    #                 the chunk is partially touces the array                   #
+    #############################################################################
+    
     # renew the chunk slices so that it is PAD_SIZE bigger than original
-    chunk_pad = [[chunk[0].start, chunk[0].stop],
+    chunk_pad = [[0,0],
                  [chunk[1].start - PAD_SIZE, chunk[1].stop + PAD_SIZE],
                  [chunk[2].start - PAD_SIZE, chunk[2].stop + PAD_SIZE]]
 
@@ -181,7 +201,7 @@ def pad_chunk(hdf:str, chunks:list, idx:int):
                     chunk_pad[1][0]:chunk_pad[1][1],
                     chunk_pad[2][0]:chunk_pad[2][1]]
 
-    # If any of the padding size is not 0, then pad  the array 
+    # If any of the padding size is not 0, then pad the array 
     # to meet the paded chunk size of (BLOCK_SIZE + 2 * PAD_SIZE)
     if any([pad_left, pad_right, pad_top, pad_bottom]):
         arr = np.pad(arr, ((0, 0),
@@ -191,3 +211,5 @@ def pad_chunk(hdf:str, chunks:list, idx:int):
                            constant_values=0)
         
     return arr
+
+
