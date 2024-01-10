@@ -16,7 +16,7 @@ YR_TRAIN_TO = 2014
 # YR_TRAIN_TO = 2022
 
 # Model info
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 NUM_EPOCH = 400
 IN_CHANNLE = 3   # 1) impervious surface, 2) DEM, 3) SLOPE
 
