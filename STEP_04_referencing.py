@@ -34,7 +34,8 @@ model.downs[0] = nn.Sequential(
                 nn.ReLU())
 
 # load the best model weights
-best_model = glob('data/Saved_models/Best*')[-1]
+best_model = sorted(glob('data/Saved_models/Best*'))[-1]
+print(f"Use the best model: {best_model}")
 best_model_dict = torch.load(best_model)
 model.load_state_dict(best_model_dict)
 
