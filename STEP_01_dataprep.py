@@ -71,9 +71,3 @@ for hdf_file in HDFs:
 
 
     
-    
-    
-        
-       
-
-

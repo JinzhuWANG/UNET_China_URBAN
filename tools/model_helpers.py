@@ -3,10 +3,14 @@
 import os
 import numpy as np
 import pandas as pd
+import h5py
 from glob import glob
 import torch
 from torchvision.utils import save_image
 from tqdm import tqdm
+
+from STEP_00_parameters import PAD_SIZE
+
 
 # Set up working directory
 if __name__ == '__main__':
@@ -116,3 +120,74 @@ def pred_one_img(model, dataset, idx, epoch, img_path='data/Train_model_pred_img
     # save true-pred img to disk
     concat_img = np.hstack([pred_img, y_arry])
     save_image(torch.tensor(concat_img), f"{img_path}/train_pred_img_{epoch:03}.jpeg")
+
+
+def pad_chunk(hdf:str, chunks:list, idx:int):
+    """
+    Pad a chunk of an HDF file array to the size of (BLOCK_SIZE + PAD_SIZE).
+    !!! If the chunk is on the edge of the array, then the padding it with 0 to meet the size requiremet.
+
+    Parameters:
+    - hdf (str): The path to the HDF file.
+    - chunks (list): A list of chunks.
+    - idx (int): The index of the chunk to pad.
+
+    Returns:
+    - arr (ndarray): The padded chunk array.
+    """
+
+    # Read the HDF file
+    src = h5py.File(hdf, 'r')
+    # Get the array
+    src_array = src['array']
+
+    # Get the chunk
+    chunk = chunks[idx]
+
+    # renew the chunk slices so that it is PAD_SIZE bigger than original
+    chunk_pad = [[chunk[0].start, chunk[0].stop],
+                 [chunk[1].start - PAD_SIZE, chunk[1].stop + PAD_SIZE],
+                 [chunk[2].start - PAD_SIZE, chunk[2].stop + PAD_SIZE]]
+
+    # innitialize the padding size to be 0
+    pad_left = pad_right = pad_top = pad_bottom = 0
+
+    # if the left edge of the chunk_pad is smaller than 0, 
+    # then pad the arr_left with 0 of size -chunk_pad[1][0]
+    if chunk_pad[1][0] < 0:
+        pad_left = -chunk_pad[1][0]
+        chunk_pad[1][0] = 0
+
+    # if the right edge of the chunk_pad is bigger than the src_shape (src_array.shape[1]), 
+    # then pad the arr_right with 0 of size chunk_pad[1][1] - src_array.shape[1]
+    if chunk_pad[1][1] > src_array.shape[1]:
+        pad_right = chunk_pad[1][1] - src_array.shape[1]
+        chunk_pad[1][1] = src_array.shape[1]
+
+    # if the top edge of the chunk_pad is smaller than 0,
+    # then pad the arr_top with 0 of size -chunk_pad[2][0]
+    if chunk_pad[2][0] < 0:
+        pad_top = -chunk_pad[2][0]
+        chunk_pad[2][0] = 0
+
+    # if the bottom edge of the chunk_pad is bigger than the src_shape (src_array.shape[2]),
+    # then pad the arr_bottom with 0 of size chunk_pad[2][1] - src_array.shape[2]
+    if chunk_pad[2][1] > src_array.shape[2]:
+        pad_bottom = chunk_pad[2][1] - src_array.shape[2]
+        chunk_pad[2][1] = src_array.shape[2]
+
+    # Get the array with valid values
+    arr = src_array[:,
+                    chunk_pad[1][0]:chunk_pad[1][1],
+                    chunk_pad[2][0]:chunk_pad[2][1]]
+
+    # If any of the padding size is not 0, then pad  the array 
+    # to meet the paded chunk size of (BLOCK_SIZE + 2 * PAD_SIZE)
+    if any([pad_left, pad_right, pad_top, pad_bottom]):
+        arr = np.pad(arr, ((0, 0),
+                           (pad_left, pad_right),
+                           (pad_top, pad_bottom)),
+                           mode='constant',
+                           constant_values=0)
+        
+    return arr

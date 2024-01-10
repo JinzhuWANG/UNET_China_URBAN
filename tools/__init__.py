@@ -14,7 +14,7 @@ from shapely.geometry import box
 
 import rasterio
 from rasterio.enums import Resampling
-from rasterio.warp import Resampling, calculate_default_transform, reproject
+from rasterio.warp import Resampling, calculate_default_transform
 from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 
@@ -82,7 +82,7 @@ def mosaic_tif_2_vrt(raster_files, vrt_path):
 
 def reproject_raster(src_file, ref_file, dst_file):
     """
-    Reprojects a raster file to match the coordinate reference system (CRS) of a reference file.
+    Reprojects a raster file to match 1) the coordinate reference system (CRS) and 2) sptail resolution of a reference file.
 
     Args:
         src_file (str): The path to the source raster file.
@@ -98,17 +98,30 @@ def reproject_raster(src_file, ref_file, dst_file):
     else:
         # Get the CRS of the reference file
         dst_crs = rasterio.open(ref_file).crs
+        dst_resolution = rasterio.open(ref_file).res[0]
         block_size = rasterio.open(ref_file).block_shapes[0][0]
 
         # Reproject the raster file
         with rasterio.open(src_file) as src:
             # Create a WarpedVRT instance
-            with WarpedVRT(src, crs=dst_crs, resampling=Resampling.nearest) as vrt:
+            
+            # Calculate the transformation and the new dimensions
+            transform, width, height = calculate_default_transform(
+                src.crs, dst_crs, src.width, src.height, *src.bounds, resolution=dst_resolution
+            )
+
+            # Create the WarpedVRT with the desired parameters
+            with WarpedVRT(src, crs=dst_crs, transform=transform, width=width, height=height,
+                        resampling=Resampling.bilinear) as vrt:
+                
+                # Update the metadata
                 profile = vrt.profile
                 profile.update(driver='GTiff',
                                blockxsize=block_size,
                                blockysize=block_size,
-                               compression='lzw')
+                               compress='lzw',
+                               BIGTIFF = "IF_SAFER")
+                
                 # Write the reprojected raster to disk
                 with rasterio.open(dst_file, 'w', **profile) as dst:
                     # Loop through the blocks

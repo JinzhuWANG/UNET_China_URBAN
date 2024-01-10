@@ -4,9 +4,9 @@ IMPERVIOUS_VAL = 8
 # Define the number of workers for dataloader
 NUM_WORKERS = 12 
 
-
 # The block size for each tile image
 BLOCK_SIZE = 512
+PAD_SIZE = 128
 
 # Historical traning years
 YR_TRAIN_FROM = 2006
