@@ -143,10 +143,3 @@ with rasterio.open(template) as src:
                 dst.write(pred,window=window) 
         
 
-
-
-
-
-
-
-
