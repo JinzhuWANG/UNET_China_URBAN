@@ -16,6 +16,7 @@ from tools.model_helpers import pad_chunk
 # set the device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 ############################################################
 #                       Load model                         #
 ############################################################
@@ -30,16 +31,18 @@ model.downs[0] = nn.Sequential(
                 nn.BatchNorm2d(64),
                 nn.ReLU())
 
-model.to(device)
-
-
 # load the best model weights
-best_models = glob('data/Saved_models/Best*')
-model = torch.load(best_models[-1])
+best_model = glob('data/Saved_models/Best*')[-1]
+best_model_dict = torch.load(best_model)
+model.load_state_dict(best_model_dict)
+
+# send the model to device
+model.to(device)
+model.eval()
 
 
 ############################################################
-#                         Get data                         #
+#                      Create Dataset                      #
 ############################################################
 
 class all_data_chunk_array(Dataset):
@@ -70,19 +73,26 @@ class all_data_chunk_array(Dataset):
     
     def __len__(self):
         return len(self.LUCC_from_chunks)
+    
         
-        
+############################################################
+#               Get DataLoader and predict                 #
+############################################################       
         
 # create the dataset
 HDFs = glob('data/raster/*.hdf') 
   
 all_arries = all_data_chunk_array(HDFs, YR_TRAIN_FROM, YR_TRAIN_TO)
-all_arries_loader = DataLoader(all_arries, batch_size=BATCH_SIZE, pin_memory=True, shuffle=False, num_workers=NUM_WORKERS)
+all_arries_loader = DataLoader(all_arries, batch_size=BATCH_SIZE)
+print(next(iter(all_arries_loader)).shape)
 
 
-# for idx,arr in tqdm(enumerate(all_arries_loader),total=len(all_arries_loader)):
-#     print(arr.shape)
-
+# predict
+model.eval()
+for idx,arr in tqdm(enumerate(all_arries_loader),total=len(all_arries_loader)):
+    arr = arr.to(device)
+    with torch.no_grad():
+        pred = model(arr)
         
 
 
