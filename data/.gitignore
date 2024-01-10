@@ -1,0 +1,5 @@
+# Ignore all files
+*.tif
+
+# But not directories
+!.gitignore
