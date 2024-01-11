@@ -34,10 +34,12 @@ model.downs[0] = nn.Sequential(
                 nn.ReLU())
 
 # load the best model weights
-best_model = sorted(glob('data/Saved_models/Best*'))[-1]
-print(f"Use the best model: {best_model}")
-best_model_dict = torch.load(best_model)
-model.load_state_dict(best_model_dict)
+model_weight = sorted(glob('data/Saved_models/Best*'))[-1]
+model_name = model_weight.split('/')[-1].split('.')[0]
+model_weight = torch.load(model_weight)
+model.load_state_dict(model_weight)
+
+print(f"Use the model: {model_name}")
 
 # send the model to device
 model.to(device)
@@ -118,7 +120,7 @@ with rasterio.open(template) as src:
 
     
 # create the predicted TIF
-with rasterio.open(f'data/predicted_{YR_TRAIN_FROM}_{YR_TRAIN_TO}.tif', 
+with rasterio.open(f'data/predicted_{YR_TRAIN_FROM}_{YR_TRAIN_TO}_{model_name}.tif', 
                     'w', 
                     **meta) as dst:
 
