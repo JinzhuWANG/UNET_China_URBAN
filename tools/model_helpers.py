@@ -79,14 +79,15 @@ def load_saved_model(model):
         longest_trained_model = sorted(longest_trained_model)[-1]
         model.load_state_dict(torch.load(longest_trained_model,map_location=torch.device(device)))
         start_epoch = int(longest_trained_model[-7:-4])
+
+        metrics_df = pd.read_csv('data/Metrics_csv/metrics.csv',header=None)
+        best_loss = metrics_df[metrics_df[1]=='eval'][2].min()
         
         # report the start epoch
         print(f'Loaded model from {longest_trained_model}')
         print(f'Epoch ==> {start_epoch}')
         print(f'Best loss ==> {best_loss:.5f}')
-
-        metrics_df = pd.read_csv('data/Metrics_csv/metrics.csv',header=None)
-        best_loss = metrics_df[metrics_df[1]=='eval'][2].min()
+        
     else:
         start_epoch = 0
         best_loss = 1e9
