@@ -12,7 +12,7 @@ from tools.UNET import UNET
 from tools.helper_func import chunk_transform
 from tools.model_helpers import pad_chunk
 
-from STEP_00_parameters import BLOCK_SIZE, IN_CHANNLE, NUM_WORKERS, PAD_SIZE, \
+from STEP_00_parameters import BLOCK_SIZE, IMPERVIOUS_VAL, IN_CHANNLE, NUM_WORKERS, PAD_SIZE, \
                                YR_TRAIN_FROM, YR_TRAIN_TO
 
 # set the device
@@ -81,6 +81,8 @@ class all_data_chunk_array(Dataset):
         
         # pad the chunk
         lucc_arr = pad_chunk(self.LUCC_from,self.LUCC_from_chunks,index)
+        lucc_arr = np.where(lucc_arr==IMPERVIOUS_VAL,1,0)
+        
         terrain_arr = pad_chunk(self.terrain,self.terrain_chunks,index)
         
         out_arr = np.concatenate((lucc_arr,terrain_arr),axis=0)
@@ -115,32 +117,33 @@ with rasterio.open(template) as src:
                 BIGTIFF = "IF_SAFER")
 
     
-    # create the predicted TIF
-    with rasterio.open(f'data/predicted_{YR_TRAIN_FROM}_{YR_TRAIN_TO}.tif', 
-                       'w', 
-                       **meta) as dst:
+# create the predicted TIF
+with rasterio.open(f'data/predicted_{YR_TRAIN_FROM}_{YR_TRAIN_TO}.tif', 
+                    'w', 
+                    **meta) as dst:
 
-        # predict and write to the predicted TIF
-        model.eval()
-        for idx,(arr,win) in tqdm(enumerate(all_arries_loader),total=len(all_arries_loader)):
+    # predict and write to the predicted TIF
+    model.eval()
+    for idx,(arr,win) in tqdm(enumerate(all_arries_loader),
+                              total=len(all_arries_loader)):
+        
+        # Get the window and array
+        window = rasterio.windows.Window(**{k:v.numpy()[0] for (k,v) in win.items()})
+        arr = arr.to(device)
+        
+        with torch.no_grad():
+            pred = model(arr)
+            # subset the array to (BATCH_SIZE, 1, BLOCK_SIZE, BLOCK_SIZE)
+            pred = pred[0,
+                        :,
+                        PAD_SIZE: -PAD_SIZE,
+                        PAD_SIZE: -PAD_SIZE]
             
-            # Get the window and array
-            window = rasterio.windows.Window(**{k:v.numpy()[0] for (k,v) in win.items()})
-            arr = arr.to(device)
+            # convert to numpy array, rarange to (0, 10k), and change dtype to int16
+            pred = pred.cpu().numpy() * 10000
+            pred = pred.astype(np.int16)
             
-            with torch.no_grad():
-                pred = model(arr)
-                # subset the array to (BATCH_SIZE, 1, BLOCK_SIZE, BLOCK_SIZE)
-                pred = pred[0,
-                            :,
-                            PAD_SIZE: -PAD_SIZE,
-                            PAD_SIZE: -PAD_SIZE]
-                
-                # convert to numpy array, rarange to (0, 10k), and change dtype to int16
-                pred = pred.cpu().numpy() * 10000
-                pred = pred.astype(np.int16)
-                
-                
-                dst.write(pred,window=window) 
+            
+            dst.write(pred,window=window) 
         
 
