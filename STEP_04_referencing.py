@@ -99,7 +99,7 @@ class all_data_chunk_array(Dataset):
 HDFs = glob('data/raster/*.hdf') 
   
 all_arries = all_data_chunk_array(HDFs, YR_TRAIN_FROM, YR_TRAIN_TO)
-all_arries_loader = DataLoader(all_arries, batch_size=1, pin_memory=True)
+all_arries_loader = DataLoader(all_arries, batch_size=1, pin_memory=True,num_workers=4)
 
 
 # Use the LUCC TIF as template to create the predicted TIF

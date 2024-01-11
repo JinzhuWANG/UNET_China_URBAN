@@ -2,7 +2,7 @@
 IMPERVIOUS_VAL = 8
 
 # Define the number of workers for dataloader
-NUM_WORKERS = 2
+NUM_WORKERS = 8
 
 # The block size for each tile image
 BLOCK_SIZE = 512
