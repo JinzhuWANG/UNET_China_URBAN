@@ -72,13 +72,18 @@ def load_saved_model(model):
         best_loss (float): The best loss achieved during training.
     """
     
-    longest_trained_model = glob(f'data/Saved_models/Progress_model*')
+    longest_trained_model = sorted(glob(f'data/Saved_models/Progress_model*'))
     if len(longest_trained_model) > 0:
 
         # load historical training models
         longest_trained_model = sorted(longest_trained_model)[-1]
         model.load_state_dict(torch.load(longest_trained_model,map_location=torch.device(device)))
         start_epoch = int(longest_trained_model[-7:-4])
+        
+        # report the start epoch
+        print(f'Loaded model from {longest_trained_model}')
+        print(f'Epoch ==> {start_epoch}')
+        print(f'Best loss ==> {best_loss:.5f}')
 
         metrics_df = pd.read_csv('data/Metrics_csv/metrics.csv',header=None)
         best_loss = metrics_df[metrics_df[1]=='eval'][2].min()
@@ -93,7 +98,7 @@ def load_saved_model(model):
             os.remove(i)
             print(f'{i} has been deleted!')
             
-        return start_epoch, best_loss
+    return start_epoch, best_loss
 
 
 def pred_one_img(model, dataset, idx, epoch, img_path='data/Train_model_pred_imgs'):
