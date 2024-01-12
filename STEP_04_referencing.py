@@ -36,6 +36,7 @@ model.downs[0] = nn.Sequential(
 # load the best model weights
 model_weight = sorted(glob('data/Saved_models/Best*'))[-1]
 model_name = model_weight.split('/')[-1].split('.')[0]
+
 model_weight = torch.load(model_weight)
 model.load_state_dict(model_weight)
 
@@ -52,14 +53,13 @@ model.eval()
 
 class all_data_chunk_array(Dataset):
     
-    def __init__(self,HDFs, yr_from, yr_to):
+    def __init__(self,HDFs, year):
         super().__init__()
-        self.yr_from = yr_from
-        self.yr_to = yr_to
+        self.year = year
         self.HDFs = HDFs
         
         # get the HDF file paths
-        self.LUCC_from = [i for i in self.HDFs if str(self.yr_from) in i][0]
+        self.LUCC_from = [i for i in self.HDFs if str(self.year) in i][0]
         self.terrain = [i for i in self.HDFs if 'terrain' in i][0]
         
         # use the LUCC_from as geo_ref to get chunks for each hdf
@@ -102,17 +102,18 @@ class all_data_chunk_array(Dataset):
 # create the dataset
 HDFs = glob('data/raster/*.hdf') 
   
-all_arries = all_data_chunk_array(HDFs, YR_TRAIN_FROM, YR_TRAIN_TO)
+all_arries = all_data_chunk_array(HDFs, YR_TRAIN_TO)
 all_arries_loader = DataLoader(all_arries, batch_size=1, pin_memory=True,num_workers=4)
 
 
 # Use the LUCC TIF as template to create the predicted TIF
-template = f'data/raster/CLCD_v01_{YR_TRAIN_FROM}_albert.tif'
+template = f'data/raster/CLCD_v01_2006_albert.tif'
 
 # Get the meta data from the template
 with rasterio.open(template) as src:
     meta = src.meta.copy()
     meta.update(dtype = np.int16, 
+                nodata = -9999,
                 compress =  'lzw',
                 blockxsize = BLOCK_SIZE,
                 blockysize = BLOCK_SIZE,

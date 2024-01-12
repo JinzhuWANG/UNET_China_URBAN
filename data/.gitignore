@@ -1,5 +1,8 @@
 # Ignore all files
 *.tif
+*.gz
+*.tar
+*.zip
 
 # But not directories
 !.gitignore
